@@ -1,0 +1,11 @@
+[workspace]
+members = [".", "macros"]
+
+[package]
+name = "derive-tree-sitter"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+derive-tree-sitter-macros = { path = "./macros" }
+tree-sitter = "0.25"
