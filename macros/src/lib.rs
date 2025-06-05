@@ -18,6 +18,8 @@ struct FieldOptions {
     ty: syn::Type,
     #[darling(default)]
     rule: Option<String>,
+    #[darling(default)]
+    with: Option<syn::Expr>,
 }
 
 #[derive(FromVariant)]
@@ -63,18 +65,18 @@ pub fn derive_from_tree_sitter(input: TokenStream) -> TokenStream {
                     };
 
                     let method = match ty_ident.as_deref() {
-                        Some("Range") => quote!(node.span()),
+                        Some("Range") => quote!(node.range()),
                         Some("String") => quote!(node.slice()),
                         Some("Option") => {
                             let rule = rule.unwrap_or(name.as_str());
-                            quote!(node.try_child(#rule))
+                            quote!(node.try_child(#rule)?)
                         }
                         Some("Vec") => {
                             if let Some(rule) = rule {
-                                quote!(node.children(#rule))
+                                quote!(node.children(#rule)?)
                             } else if name.ends_with('s') {
                                 let rule = &name.to_string()[..(name.len() - 1)];
-                                quote!(node.children(#rule))
+                                quote!(node.children(#rule)?)
                             } else {
                                 syn::Error::new_spanned(
                                     &field.ident,
@@ -89,11 +91,21 @@ pub fn derive_from_tree_sitter(input: TokenStream) -> TokenStream {
                         }
                         _ => {
                             let rule = rule.unwrap_or(name.as_str());
-                            quote!(node.child(#rule))
+                            quote!(node.child(#rule)?)
                         }
                     };
 
-                    quote! { #ident: #method }
+                    match &field.with {
+                        Some(with) => quote! {
+                            #ident: (#with)(#method).map_err(|e| {
+                                ::derive_tree_sitter::Error {
+                                    range: node.range(),
+                                    kind: ::derive_tree_sitter::ErrorKind::Custom(e.to_string()),
+                                }
+                            })?
+                        },
+                        None => quote! { #ident: #method },
+                    }
                 })
                 .collect::<Vec<_>>();
 
@@ -111,7 +123,7 @@ pub fn derive_from_tree_sitter(input: TokenStream) -> TokenStream {
                     Some(rule) => {
                         quote! {
                             #rule => #ident::#variant_ident(
-                                ::derive_tree_sitter::FromNode::from_node(node),
+                                ::derive_tree_sitter::FromNode::from_node(node)?,
                             ),
                         }
                     }
@@ -142,8 +154,8 @@ pub fn derive_from_tree_sitter(input: TokenStream) -> TokenStream {
         impl #impl_generics ::derive_tree_sitter::FromNode for #ident #ty_generics
         #where_clause
         {
-            fn from_node(node: &mut ::derive_tree_sitter::Node<'_, '_>) -> Self {
-                #body
+            fn from_node(node: &mut ::derive_tree_sitter::Node<'_, '_>) -> ::derive_tree_sitter::Result<Self> {
+                Ok(#body)
             }
         }
     }
