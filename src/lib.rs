@@ -1,3 +1,6 @@
+#[cfg(target_arch = "wasm32")]
+extern crate tree_sitter_c2rust as tree_sitter;
+
 pub use derive_tree_sitter_macros::*;
 use std::ops::Range;
 

@@ -8,4 +8,9 @@ edition = "2024"
 
 [dependencies]
 derive-tree-sitter-macros = { path = "./macros" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tree-sitter = "0.25"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tree-sitter-c2rust = "0.25"
