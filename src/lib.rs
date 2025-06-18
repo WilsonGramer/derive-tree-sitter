@@ -72,8 +72,12 @@ impl Node<'_, '_> {
 
     #[track_caller]
     pub fn try_child<T: FromNode>(&mut self, rule: &str) -> Result<Option<T>> {
-        self.inner
-            .child_by_field_name(rule)
+        let child = self
+            .inner
+            .children_by_field_name(rule, self.cursor.as_mut().unwrap())
+            .find(|child| child.is_named());
+
+        child
             .map(|child| self.with(child, T::from_node))
             .transpose()
     }
@@ -103,8 +107,10 @@ impl Node<'_, '_> {
             .collect()
     }
 
-    pub fn has_child(&self, rule: &str) -> bool {
-        self.inner.child_by_field_name(rule).is_some()
+    pub fn has_child(&mut self, rule: &str) -> bool {
+        self.inner
+            .children_by_field_name(rule, self.cursor.as_mut().unwrap())
+            .any(|child| child.is_named())
     }
 }
 
